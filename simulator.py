@@ -19,6 +19,7 @@ import json
 import random
 from collections import defaultdict
 from itertools import combinations
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -93,96 +94,19 @@ FALLBACK_ELO: dict[str, int] = {
 
 # Structure des groupes : groupe → liste de 4 équipes
 GROUPS: dict[str, list[str]] = {
-    "A": ["Mexico", "South Africa", "South Korea", "Czech Republic"],
-    "B": ["Canada", "Bosnia and Herzegovina", "Qatar", "Switzerland"],
-    "C": ["Brazil", "Morocco", "Haiti", "Scotland"],
-    "D": ["United States", "Paraguay", "Australia", "Turkey"],
-    "E": ["Germany", "Curacao", "Ivory Coast", "Ecuador"],
-    "F": ["Netherlands", "Japan", "Sweden", "Tunisia"],
-    "G": ["Belgium", "Egypt", "Iran", "New Zealand"],
-    "H": ["Spain", "Cape Verde", "Saudi Arabia", "Uruguay"],
-    "I": ["France", "Senegal", "Iraq", "Norway"],
-    "J": ["Argentina", "Algeria", "Austria", "Jordan"],
-    "K": ["Portugal", "DR Congo", "Uzbekistan", "Colombia"],
-    "L": ["England", "Croatia", "Ghana", "Panama"],
+    "A":**[1]**,
+    "B":**[2]**,
+    "C":**[3]**,
+    "D":**[4]**,
+    "E":**[5]**,
+    "F":**[6]**,
+    "G":**[7]**,
+    "H":**[8]**,
+    "I":**[9]**,
+    "J":**[10]**,
+    "K":**[11]**,
+    "L":**[12]**,
 }
-
-# Résultats déjà joués (journée 1 et 2, selon résultats réels)
-# Format : (équipe1, équipe2, score1, score2)
-# Remplis au fur et à mesure du tournoi — laisser vide pour simuler depuis le début.
-PLAYED_MATCHES: list[tuple[str, str, int, int]] = [
-    # ── Journée 1 ────────────────────────────────────────────────────────────
-    # Groupe A
-    ("Mexico",                   "South Africa",           2, 0),
-    ("South Korea",              "Czech Republic",         2, 1),
-    # Groupe B
-    ("Canada",                   "Bosnia and Herzegovina", 1, 1),
-    ("Qatar",                    "Switzerland",            1, 1),
-    # Groupe C
-    ("Brazil",                   "Morocco",                1, 1),
-    ("Haiti",                    "Scotland",               0, 1),
-    # Groupe D
-    ("United States",            "Paraguay",               4, 1),
-    ("Australia",                "Turkey",                 2, 0),
-    # Groupe E
-    ("Germany",                  "Curacao",                7, 1),
-    ("Ivory Coast",              "Ecuador",                1, 0),
-    # Groupe F
-    ("Netherlands",              "Japan",                  2, 2),
-    ("Sweden",                   "Tunisia",                5, 1),
-    # Groupe G
-    ("Belgium",                  "Egypt",                  1, 1),
-    ("Iran",                     "New Zealand",            2, 2),
-    # Groupe H
-    ("Spain",                    "Cape Verde",             0, 0),
-    ("Saudi Arabia",             "Uruguay",                1, 1),
-    # Groupe I
-    ("Iraq",                     "Norway",                 1, 4),
-    ("France",                   "Senegal",                3, 1),
-    # Groupe J
-    ("Argentina",                "Algeria",                3, 0),
-    ("Austria",                  "Jordan",                 3, 1),
-    # Groupe K
-    ("Portugal",                 "DR Congo",               1, 1),
-    ("Uzbekistan",               "Colombia",               1, 3),
-    # Groupe L
-    ("England",                  "Croatia",                4, 2),
-    ("Ghana",                    "Panama",                 1, 0),
-    # ── Journée 2 ────────────────────────────────────────────────────────────
-    # Groupe A
-    ("Czech Republic",           "South Africa",           1, 1),
-    ("Mexico",                   "South Korea",            1, 0),
-    # Groupe B
-    ("Switzerland",              "Bosnia and Herzegovina", 4, 1),
-    ("Canada",                   "Qatar",                  6, 0),
-    # Groupe C
-    ("Morocco",                  "Scotland",               1, 0),
-    ("Brazil",                   "Haiti",                  3, 0),
-    # Groupe D
-    ("Turkey",                   "Paraguay",               0, 1),
-    ("United States",            "Australia",              2, 0),
-    # Groupe E
-    ("Germany",                  "Ivory Coast",            2, 1),
-    ("Ecuador",                  "Curacao",                0, 0),
-    # Groupe F
-    ("Netherlands",              "Sweden",                 5, 1),
-    ("Tunisia",                  "Japan",                  0, 4),
-    # Groupe G
-    ("Belgium",                  "Iran",                   0, 0),
-    ("New Zealand",              "Egypt",                  1, 3),
-    # Groupe H
-    ("Spain",                    "Saudi Arabia",           4, 0),
-    ("Uruguay",                  "Cape Verde",             2, 2),
-    # Groupe I
-    ("Norway",                   "Senegal",                3, 2),
-    ("France",                   "Iraq",                   3, 0),
-    # Groupe J
-    ("Argentina",                "Austria",                2, 0),
-    ("Jordan",                   "Algeria",                1, 2),
-    # Groupe K — non encore disputés au moment des captures
-    # Groupe L — non encore disputés au moment des captures
-    # Ajoute ici les résultats de journée 3 quand ils seront connus
-]
 
 # Bracket Coupe du Monde 2026 — R32
 # Définit quels groupes se rencontrent et selon quelle logique.
@@ -191,30 +115,44 @@ PLAYED_MATCHES: list[tuple[str, str, int, int]] = [
 # Les slots T1-T12 = 1ers, T2a-T2l = 2es, T3 = meilleur 3e de la combinaison
 #
 # Format R32 selon draw officiel :
-R32_BRACKET: list[tuple[str, str]] = [
-    # match_id → (slot_A, slot_B)
-    ("1A", "2D"),   # R32 Match 1  : 1er A  vs 2e D
-    ("1B", "2E"),   # R32 Match 2  : 1er B  vs 2e E
-    ("1C", "2F"),   # R32 Match 3  : 1er C  vs 2e F
-    ("1D", "2G"),   # R32 Match 4  : 1er D  vs 2e G
-    ("1E", "2H"),   # R32 Match 5  : 1er E  vs 2e H
-    ("1F", "2I"),   # R32 Match 6  : 1er F  vs 2e I
-    ("1G", "2J"),   # R32 Match 7  : 1er G  vs 2e J
-    ("1H", "2K"),   # R32 Match 8  : 1er H  vs 2e K
-    ("1I", "2L"),   # R32 Match 9  : 1er I  vs 2e L
-    ("1J", "2A"),   # R32 Match 10 : 1er J  vs 2e A
-    ("1K", "2B"),   # R32 Match 11 : 1er K  vs 2e B
-    ("1L", "2C"),   # R32 Match 12 : 1er L  vs 2e C
-    # 8 meilleurs 3es répartis selon la combinaison FIFA (simplification)
-    ("T3_1", "T3_2"),
-    ("T3_3", "T3_4"),
-    ("T3_5", "T3_6"),
-    ("T3_7", "T3_8"),
-]
+R32_BRACKET: list[tuple[str, str]] =**[13]**
 
 # Groupes éligibles pour les 8 meilleurs 3es selon la table FIFA 2026
 # (dépend des 3es qui se qualifient — appliqué dynamiquement)
 BEST_THIRD_GROUPS = list("ABCDEFGHIJKL")
+
+
+# ── Chargement des scores en direct ──────────────────────────────────────────
+
+def load_live_scores() -> list[tuple[str, str, int, int]]:
+    """
+    Charge les scores en direct depuis live_scores.json généré par watcher.py.
+    Retourne une liste de (team1, team2, score1, score2).
+    """
+    live_scores_file = Path("live_scores.json")
+    if not live_scores_file.exists():
+        print("[INFO] Aucun fichier live_scores.json trouvé. Simulation complète depuis le début.")
+        return**[14]**
+    
+    try:
+        with open(live_scores_file, encoding="utf-8") as f:
+            data = json.load(f)
+        
+        matches =**[14]**
+        for match_key, scores in data.items():
+            # Format attendu : "Team1 vs Team2" →**[16]**
+            if " vs " in match_key and len(scores) == 2:
+                team1, team2 = match_key.split(" vs ", 1)
+                score1, score2 = scores
+                matches.append((team1.strip(), team2.strip(), int(score1), int(score2)))
+        
+        print(f"[OK] {len(matches)} résultats chargés depuis live_scores.json")
+        return matches
+        
+    except Exception as e:
+        print(f"[WARN] Erreur lors du chargement de live_scores.json : {e}")
+        print("[INFO] Simulation complète depuis le début.")
+        return**[14]**
 
 
 # ── Scraping Elo (optionnel) ──────────────────────────────────────────────────
@@ -318,7 +256,7 @@ def simulate_group_stage(
 ) -> dict[str, dict[str, list[str]]]:
     """
     Simule toute la phase de groupes.
-    Retourne un dict : groupe → {"1st": [équipe], "2nd": [équipe], "3rd": [équipe]}
+    Retourne un dict : groupe → {"1st":**[18]**, "2nd":**[18]**, "3rd":**[18]**}
     Plus les classements complets pour choisir les meilleurs 3es.
     """
     # Construire l'état initial depuis les matchs joués
@@ -377,8 +315,7 @@ def simulate_group_stage(
             key=lambda t: (points[grp][t], gd[grp][t], gf[grp][t], elo[t]),
             reverse=True,
         )
-        results[grp] = [
-            (t, points[grp][t], gd[grp][t], gf[grp][t]) for t in ranked
+        results[grp] =**[21]**[t], gd[grp][t], gf[grp][t]) for t in ranked
         ]
 
     return results
@@ -410,13 +347,13 @@ def select_best_thirds(
     Points → Différence de buts → Buts marqués → Tirage aléatoire.
     Retourne la liste des 8 équipes qualifiées comme meilleurs 3es.
     """
-    thirds = []
+    thirds =**[14]**
     for grp, ranking in group_results.items():
         team, pts, gd, gf = ranking[2]  # 3e de chaque groupe
         thirds.append((team, pts, gd, gf))
 
     thirds.sort(key=lambda x: (x[1], x[2], x[3]), reverse=True)
-    return [t[0] for t in thirds[:8]]
+    return**[23]** for t in thirds[:8]]
 
 
 # ── Phase à élimination directe ──────────────────────────────────────────────
@@ -452,7 +389,7 @@ def simulate_knockout_stage(
         "R32": R32_BRACKET,
     }
 
-    survivors: list[str] = []
+    survivors: list[str] =**[14]**
     for slot_a, slot_b in R32_BRACKET:
         team_a = qualified.get(slot_a, "TBD")
         team_b = qualified.get(slot_b, "TBD")
@@ -465,10 +402,10 @@ def simulate_knockout_stage(
     # R16, QF, SF, Finale
     results: dict[str, str] = {}
     current_round = survivors
-    round_names = ["R16", "QF", "SF", "Final"]
+    round_names =**[25]**
 
     for rnd_name in round_names:
-        next_round: list[str] = []
+        next_round: list[str] =**[14]**
         for i in range(0, len(current_round), 2):
             if i + 1 >= len(current_round):
                 next_round.append(current_round[i])
@@ -498,7 +435,7 @@ def run_simulation(n: int, elo: dict[str, float]) -> dict[str, Any]:
       "n_simulations": int,
       "groups": {
         "A": {
-          "teams": [...],
+          "teams":**[27]**,
           "prob_1st": {"Mexico": 0.72, ...},
           "prob_2nd": {...},
           "prob_3rd_qualify": {...},
@@ -515,12 +452,15 @@ def run_simulation(n: int, elo: dict[str, float]) -> dict[str, Any]:
       },
       "bracket": {
         "most_likely": {
-          "R32": [["ArgentinaXX%", "BrazilXX%"], ...],
+          "R32":**[28]**, ...],
           ...
         }
       }
     }
     """
+    # Charger les scores en direct
+    played_matches = load_live_scores()
+    
     # Compteurs
     finish_pos: dict[str, dict[str, dict[str, int]]] = {
         grp: {"1st": defaultdict(int), "2nd": defaultdict(int), "3rd": defaultdict(int)}
@@ -530,7 +470,7 @@ def run_simulation(n: int, elo: dict[str, float]) -> dict[str, Any]:
 
     ko_counts: dict[str, dict[str, int]] = {
         stage: defaultdict(int)
-        for stage in ["R32", "R16", "QF", "SF", "Final", "Champion"]
+        for stage in**[29]**
     }
 
     # Suivi des adversaires les plus probables par slot R32
@@ -542,7 +482,7 @@ def run_simulation(n: int, elo: dict[str, float]) -> dict[str, Any]:
 
     for _ in range(n):
         # 1. Phase de groupes
-        group_results = simulate_group_stage(elo, PLAYED_MATCHES)
+        group_results = simulate_group_stage(elo, played_matches)
 
         # 2. Comptage des positions en groupes
         for grp, ranking in group_results.items():
@@ -573,7 +513,7 @@ def run_simulation(n: int, elo: dict[str, float]) -> dict[str, Any]:
         # 5. Phase éliminatoire
         ko_results = simulate_knockout_stage(qualified, elo)
         for key, winner in ko_results.items():
-            for stage in ["R16", "QF", "SF", "Final", "Champion"]:
+            for stage in**[30]**:
                 if key.startswith(stage):
                     ko_counts[stage][winner] += 1
                 elif key == "Champion" and stage == "Champion":
@@ -587,6 +527,7 @@ def run_simulation(n: int, elo: dict[str, float]) -> dict[str, Any]:
 
     output: dict[str, Any] = {
         "n_simulations": n,
+        "live_matches_loaded": len(played_matches),
         "elo_ratings": {k: int(v) for k, v in elo.items()},
         "groups": {},
         "knockout": {
@@ -599,7 +540,7 @@ def run_simulation(n: int, elo: dict[str, float]) -> dict[str, Any]:
             "prob_best_third": to_probs(best_third_count, n),
         },
         "bracket": {
-            "r32_most_likely_matchups": []
+            "r32_most_likely_matchups":**[14]**
         }
     }
 
@@ -665,6 +606,7 @@ def main() -> None:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
     print(f"\n[OK] Résultats exportés dans '{args.output}'")
+    print(f"[INFO] {results['live_matches_loaded']} matchs en direct intégrés")
     print("\n── Top 5 favoris pour le titre ──")
     for team, prob in list(results["knockout"]["prob_Champion"].items())[:5]:
         print(f"  {team:25s}  {prob*100:5.1f}%")

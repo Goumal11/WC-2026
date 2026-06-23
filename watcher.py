@@ -36,7 +36,7 @@ import requests
 # Clé API football-data.org
 # → Inscription gratuite sur https://www.football-data.org/client/register
 # → Pour GitHub Actions : ajoute FD_API_KEY dans Settings > Secrets > Actions
-API_KEY: str = os.getenv("FD_API_KEY", "METS_TA_CLE_ICI")
+API_KEY: str = os.getenv("FD_API_KEY", "24ffda09d36c40698b8a5e3d0b928e7c")
 
 API_BASE        = "https://api.football-data.org/v4"
 WC_COMPETITION  = "WC"       # code Coupe du Monde
@@ -184,33 +184,6 @@ def scores_changed(
                 changed = True
     return changed
 
-
-# ── Mise à jour de simulator.py ────────────────────────────────────────────────
-
-def update_simulator_matches(matches: list[tuple[str, str, int, int]]) -> bool:
-    """Réécrit le bloc PLAYED_MATCHES dans simulator.py."""
-    if not SIMULATOR.exists():
-        print(f"[ERROR] {SIMULATOR} introuvable.")
-        return False
-
-    content = SIMULATOR.read_text(encoding="utf-8")
-
-    lines = ["PLAYED_MATCHES: list[tuple[str, str, int, int]] = [\n"]
-    lines.append("    # ── Mis à jour automatiquement par watcher.py ──────────────────────\n")
-    for t1, t2, s1, s2 in matches:
-        lines.append(f'    ("{t1}", "{t2}", {s1}, {s2}),\n')
-    lines.append("]\n")
-    new_block = "".join(lines)
-
-    pattern = r"PLAYED_MATCHES:.*?^\]\n"
-    new_content = re.sub(pattern, new_block, content, flags=re.DOTALL | re.MULTILINE)
-
-    if new_content == content:
-        return False
-
-    SIMULATOR.write_text(new_content, encoding="utf-8")
-    print(f"[OK] simulator.py mis à jour — {len(matches)} matchs encodés.")
-    return True
 
 
 # ── Lancement du simulateur ────────────────────────────────────────────────────
