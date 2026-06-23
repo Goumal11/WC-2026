@@ -1,0 +1,53 @@
+name: ⚽ Live Score Update
+
+on:
+  # Cron toutes les 5 minutes (granularité minimale GitHub Actions)
+  schedule:
+    - cron: "*/5 * * * *"
+
+  # Déclenchement manuel depuis l'onglet Actions
+  workflow_dispatch:
+
+jobs:
+  update-bracket:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # nécessaire pour git push
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐍 Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: 📦 Install dependencies
+        run: pip install requests numpy
+
+      - name: ⚽ Fetch scores & simulate
+        env:
+          # Ajoute ta clé dans : Settings > Secrets and variables > Actions > New secret
+          # Nom du secret : FD_API_KEY
+          FD_API_KEY: ${{ secrets.FD_API_KEY }}
+        run: python watcher.py --once --n 50000
+
+      - name: 🔍 Check for changes
+        id: check
+        run: |
+          git diff --quiet bracket.json live_scores.json \
+            && echo "changed=false" >> $GITHUB_OUTPUT \
+            || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: 💾 Commit & push
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bracket.json live_scores.json
+          git commit -m "⚽ bracket update — $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
