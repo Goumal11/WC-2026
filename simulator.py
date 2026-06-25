@@ -221,6 +221,28 @@ R32_BRACKET: list[tuple[str, str]] = [
     ("T3_1", "T3_2"), ("T3_3", "T3_4"), ("T3_5", "T3_6"), ("T3_7", "T3_8"),
 ]
 
+# ── Attribution des meilleures 3es aux slots T3 (FIFA 2026) ──────────────────
+# Chaque slot T3_N liste les groupes éligibles par ordre de priorité.
+# La logique d'attribution exclut un groupe dès qu'il est utilisé.
+# Avec 12 groupes et 8 meilleures 3es qualifiées, on dispose de 8 slots T3
+# répartis en 4 matchs (matchs 13–16 du R32).
+# Les groupes éligibles par slot sont basés sur la table officielle FIFA :
+#   Match 13 : T3_1 vs T3_2  → meilleurs 3es des groupes A/B/C/D
+#   Match 14 : T3_3 vs T3_4  → meilleurs 3es des groupes E/F/G/H
+#   Match 15 : T3_5 vs T3_6  → meilleurs 3es des groupes I/J/K/L
+#   Match 16 : T3_7 vs T3_8  → meilleurs 3es des groupes A/B/C/D/E/F/G/H/I/J/K/L
+#              (les 2 meilleures 3es restantes, tous groupes confondus)
+THIRD_PLACE_SLOTS: dict[str, list[str]] = {
+    "T3_1": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "T3_2": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "T3_3": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "T3_4": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "T3_5": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "T3_6": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "T3_7": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "T3_8": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+}
+
 # ── Mapping noms API → noms internes ─────────────────────────────────────────
 NAME_MAP: dict[str, str] = {
     "USA":                          "United States",
