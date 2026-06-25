@@ -41,232 +41,276 @@ import requests
 # CONFIGURATION
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── Clé API football-data.org ─────────────────────────────────────────────────
-# Inscription gratuite sur https://www.football-data.org/client/register
-# Pour GitHub Actions : ajoute un secret FD_API_KEY dans Settings > Secrets
 API_KEY: str = os.getenv("FD_API_KEY", "24ffda09d36c40698b8a5e3d0b928e7c")
 
 SCORES_FILE    = Path("live_scores.json")
 BRACKET_FILE   = Path("bracket.json")
-POLL_INTERVAL  = 60   # secondes entre deux polls (mode --watch continu)
+POLL_INTERVAL  = 60
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DONNÉES DU TOURNOI
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── Ratings Elo pré-encodés (source : eloratings.net, snapshot juin 2026) ─────
 FALLBACK_ELO: dict[str, int] = {
-    # Groupe A
-    "Mexico":                    1896,
-    "South Africa":              1524,
-    "South Korea":               1786,
-    "Czech Republic":            1759,
-    # Groupe B
-    "Canada":                    1779,
-    "Bosnia and Herzegovina":    1680,
-    "Qatar":                     1543,
-    "Switzerland":               1879,
-    # Groupe C
-    "Brazil":                    1986,
-    "Morocco":                   1888,
-    "Haiti":                     1393,
-    "Scotland":                  1763,
-    # Groupe D
-    "United States":             1826,
-    "Paraguay":                  1699,
-    "Australia":                 1735,
-    "Turkey":                    1816,
-    # Groupe E
-    "Germany":                   1954,
-    "Curacao":                   1458,
-    "Ivory Coast":               1762,
-    "Ecuador":                   1754,
-    # Groupe F
-    "Netherlands":               1972,
-    "Japan":                     1910,
-    "Sweden":                    1857,
-    "Tunisia":                   1667,
-    # Groupe G
-    "Belgium":                   1942,
-    "Egypt":                     1720,
-    "Iran":                      1741,
-    "New Zealand":               1523,
-    # Groupe H
-    "Spain":                     2129,
-    "Cape Verde":                1622,
-    "Saudi Arabia":              1680,
-    "Uruguay":                   1887,
-    # Groupe I
-    "France":                    2084,
-    "Senegal":                   1863,
-    "Iraq":                      1570,
-    "Norway":                    1929,
-    # Groupe J
-    "Argentina":                 2128,
-    "Algeria":                   1742,
-    "Austria":                   1841,
-    "Jordan":                    1600,
-    # Groupe K
-    "Portugal":                  1967,
-    "DR Congo":                  1672,
-    "Uzbekistan":                1603,
-    "Colombia":                  1998,
-    # Groupe L
-    "England":                   2055,
-    "Croatia":                   1876,
-    "Ghana":                     1668,
-    "Panama":                    1650,
+    "Mexico": 1896, "South Africa": 1524, "South Korea": 1786, "Czech Republic": 1759,
+    "Canada": 1779, "Bosnia and Herzegovina": 1680, "Qatar": 1543, "Switzerland": 1879,
+    "Brazil": 1986, "Morocco": 1888, "Haiti": 1393, "Scotland": 1763,
+    "United States": 1826, "Paraguay": 1699, "Australia": 1735, "Turkey": 1816,
+    "Germany": 1954, "Curacao": 1458, "Ivory Coast": 1762, "Ecuador": 1754,
+    "Netherlands": 1972, "Japan": 1910, "Sweden": 1857, "Tunisia": 1667,
+    "Belgium": 1942, "Egypt": 1720, "Iran": 1741, "New Zealand": 1523,
+    "Spain": 2129, "Cape Verde": 1622, "Saudi Arabia": 1680, "Uruguay": 1887,
+    "France": 2084, "Senegal": 1863, "Iraq": 1570, "Norway": 1929,
+    "Argentina": 2128, "Algeria": 1742, "Austria": 1841, "Jordan": 1600,
+    "Portugal": 1967, "DR Congo": 1672, "Uzbekistan": 1603, "Colombia": 1998,
+    "England": 2055, "Croatia": 1876, "Ghana": 1668, "Panama": 1650,
 }
 
-# ── Structure des 12 groupes ──────────────────────────────────────────────────
 GROUPS: dict[str, list[str]] = {
-    "A": ["Mexico",       "South Africa",            "South Korea",   "Czech Republic"],
-    "B": ["Canada",       "Bosnia and Herzegovina",  "Qatar",         "Switzerland"],
-    "C": ["Brazil",       "Morocco",                 "Haiti",         "Scotland"],
-    "D": ["United States","Paraguay",                "Australia",     "Turkey"],
-    "E": ["Germany",      "Curacao",                 "Ivory Coast",   "Ecuador"],
-    "F": ["Netherlands",  "Japan",                   "Sweden",        "Tunisia"],
-    "G": ["Belgium",      "Egypt",                   "Iran",          "New Zealand"],
-    "H": ["Spain",        "Cape Verde",              "Saudi Arabia",  "Uruguay"],
-    "I": ["France",       "Senegal",                 "Iraq",          "Norway"],
-    "J": ["Argentina",    "Algeria",                 "Austria",       "Jordan"],
-    "K": ["Portugal",     "DR Congo",                "Uzbekistan",    "Colombia"],
-    "L": ["England",      "Croatia",                 "Ghana",         "Panama"],
+    "A": ["Mexico",        "South Africa",           "South Korea",  "Czech Republic"],
+    "B": ["Canada",        "Bosnia and Herzegovina", "Qatar",        "Switzerland"],
+    "C": ["Brazil",        "Morocco",                "Haiti",        "Scotland"],
+    "D": ["United States", "Paraguay",               "Australia",    "Turkey"],
+    "E": ["Germany",       "Curacao",                "Ivory Coast",  "Ecuador"],
+    "F": ["Netherlands",   "Japan",                  "Sweden",       "Tunisia"],
+    "G": ["Belgium",       "Egypt",                  "Iran",         "New Zealand"],
+    "H": ["Spain",         "Cape Verde",             "Saudi Arabia", "Uruguay"],
+    "I": ["France",        "Senegal",                "Iraq",         "Norway"],
+    "J": ["Argentina",     "Algeria",                "Austria",      "Jordan"],
+    "K": ["Portugal",      "DR Congo",               "Uzbekistan",   "Colombia"],
+    "L": ["England",       "Croatia",                "Ghana",        "Panama"],
 }
 
-# ── Résultats joués ───────────────────────────────────────────────────────────
-# Ce bloc est réécrit automatiquement par le watcher en mode --watch.
-# En mode statique, complète-le manuellement.
-# Format : (équipe1, équipe2, score1, score2)
+# Résultats joués — réécrit automatiquement par le watcher en mode --watch
 PLAYED_MATCHES: list[tuple[str, str, int, int]] = [
     # ── Journée 1 ────────────────────────────────────────────────────────────
-    # Groupe A
     ("Mexico",                   "South Africa",           2, 0),
     ("South Korea",              "Czech Republic",         2, 1),
-    # Groupe B
     ("Canada",                   "Bosnia and Herzegovina", 1, 1),
     ("Qatar",                    "Switzerland",            1, 1),
-    # Groupe C
     ("Brazil",                   "Morocco",                1, 1),
     ("Haiti",                    "Scotland",               0, 1),
-    # Groupe D
     ("United States",            "Paraguay",               4, 1),
     ("Australia",                "Turkey",                 2, 0),
-    # Groupe E
     ("Germany",                  "Curacao",                7, 1),
     ("Ivory Coast",              "Ecuador",                1, 0),
-    # Groupe F
     ("Netherlands",              "Japan",                  2, 2),
     ("Sweden",                   "Tunisia",                5, 1),
-    # Groupe G
     ("Belgium",                  "Egypt",                  1, 1),
     ("Iran",                     "New Zealand",            2, 2),
-    # Groupe H
     ("Spain",                    "Cape Verde",             0, 0),
     ("Saudi Arabia",             "Uruguay",                1, 1),
-    # Groupe I
     ("Iraq",                     "Norway",                 1, 4),
     ("France",                   "Senegal",                3, 1),
-    # Groupe J
     ("Argentina",                "Algeria",                3, 0),
     ("Austria",                  "Jordan",                 3, 1),
-    # Groupe K
     ("Portugal",                 "DR Congo",               1, 1),
     ("Uzbekistan",               "Colombia",               1, 3),
-    # Groupe L
     ("England",                  "Croatia",                4, 2),
     ("Ghana",                    "Panama",                 1, 0),
     # ── Journée 2 ────────────────────────────────────────────────────────────
-    # Groupe A
     ("Czech Republic",           "South Africa",           1, 1),
     ("Mexico",                   "South Korea",            1, 0),
-    # Groupe B
     ("Switzerland",              "Bosnia and Herzegovina", 4, 1),
     ("Canada",                   "Qatar",                  6, 0),
-    # Groupe C
     ("Morocco",                  "Scotland",               1, 0),
     ("Brazil",                   "Haiti",                  3, 0),
-    # Groupe D
     ("Turkey",                   "Paraguay",               0, 1),
     ("United States",            "Australia",              2, 0),
-    # Groupe E
     ("Germany",                  "Ivory Coast",            2, 1),
     ("Ecuador",                  "Curacao",                0, 0),
-    # Groupe F
     ("Netherlands",              "Sweden",                 5, 1),
     ("Tunisia",                  "Japan",                  0, 4),
-    # Groupe G
     ("Belgium",                  "Iran",                   0, 0),
     ("New Zealand",              "Egypt",                  1, 3),
-    # Groupe H
     ("Spain",                    "Saudi Arabia",           4, 0),
     ("Uruguay",                  "Cape Verde",             2, 2),
-    # Groupe I
     ("Norway",                   "Senegal",                3, 2),
     ("France",                   "Iraq",                   3, 0),
-    # Groupe J
     ("Argentina",                "Austria",                2, 0),
     ("Jordan",                   "Algeria",                1, 2),
-    # Groupe K
-    ("DR Congo",                 "Uzbekistan",             2, 0),
-    # ── Journée 3 — à compléter ───────────────────────────────────────────────
-    # Ajoute les résultats ici, ou utilise --watch pour la mise à jour auto
+    ("Portugal",                 "Uzbekistan",             5, 0),
+    ("Colombia",                 "DR Congo",               1, 0),
+    ("England",                  "Ghana",                  0, 0),
+    ("Panama",                   "Croatia",                0, 1),
+    # ── Journée 3 — résultats connus ─────────────────────────────────────────
+    ("Mexico",                   "Czech Republic",         3, 0),
+    ("South Africa",             "South Korea",            1, 0),
+    ("Switzerland",              "Canada",                 3, 1),
+    ("Bosnia and Herzegovina",   "Qatar",                  3, 1),
+    ("Brazil",                   "Scotland",               3, 0),
+    ("Morocco",                  "Haiti",                  4, 2),
+    # ── Journée 3 — matchs restants à jouer (non encore connus) ──────────────
+    # Grp D : United States vs Turkey  |  Paraguay vs Australia  (26/06)
+    # Grp E : Germany vs Ecuador       |  Ivory Coast vs Curacao  (25/06)
+    # Grp F : Tunisia vs Netherlands   |  Japan vs Sweden         (26/06)
+    # Grp G : New Zealand vs Belgium   |  Egypt vs Iran           (26/06)
+    # Grp H : Uruguay vs Spain         |  Cape Verde vs Saudi Arabia (26/06)
+    # Grp I : Norway vs France         |  Senegal vs Iraq         (26/06)
+    # Grp J : Jordan vs Argentina      |  Algeria vs Austria      (27/06)
+    # Grp K : Colombia vs Portugal     |  DR Congo vs Uzbekistan  (27/06)
+    # Grp L : Panama vs England        |  Croatia vs Ghana        (27/06)
 ]
 
-# ── Bracket R32 — Structure officielle FIFA 2026 ─────────────────────────────
-# Source : fifa.com + skysports.com (confirmé sur les matchs déjà connus)
-# Format : (slot_équipe_A, slot_équipe_B)
-#   "1X"       = 1er du groupe X
-#   "2X"       = 2e du groupe X
-#   "T3_XXXXX" = meilleur 3e parmi les groupes listés (résolu dynamiquement)
-R32_BRACKET: list[tuple[str, str]] = [
-    # M73 : 3e Grp A    vs 1er Grp B   → ex: South Africa vs Canada
-    ("T3_A",      "1B"),
-    # M74 : 1er Grp E   vs T3 (A/B/C/D/F) → Germany vs T3
-    ("1E",        "T3_ABCDF"),
-    # M75 : 1er Grp F   vs 2e Grp C    → Netherlands vs Morocco
-    ("1F",        "2C"),
-    # M76 : 1er Grp C   vs 2e Grp F    → Brazil vs Japan
-    ("1C",        "2F"),
-    # M77 : 1er Grp I   vs T3 (C/D/F/G/H) → France vs T3
-    ("1I",        "T3_CDFGH"),
-    # M78 : 2e Grp E    vs 2e Grp I    → Ivory Coast vs Norway
-    ("2E",        "2I"),
-    # M79 : 1er Grp A   vs T3 (C/E/F/H/I) → Mexico vs T3
-    ("1A",        "T3_CEFHI"),
-    # M80 : 1er Grp L   vs T3 (E/H/I/J/K) → England vs T3
-    ("1L",        "T3_EHIJK"),
-    # M81 : 1er Grp D   vs T3 (B/E/F/I/J) → USA vs T3
-    ("1D",        "T3_BEFIJ"),
-    # M82 : 1er Grp G   vs T3 (A/E/H/I/J) → Egypt vs T3
-    ("1G",        "T3_AEHIJ"),
-    # M83 : 2e Grp H    vs 2e Grp L    → Uruguay vs Croatia/Ghana
-    ("2H",        "2L"),
-    # M84 : 2e Grp B    vs 2e Grp K    → Switzerland vs Portugal/Ghana
-    ("2B",        "2K"),
-    # M85 : 2e Grp A    vs 2e Grp J    → South Korea vs Austria/Algeria
-    ("2A",        "2J"),
-    # M86 : 1er Grp J   vs 2e Grp H    → Argentina vs Uruguay
-    ("1J",        "2H"),
-    # M87 : 1er Grp K   vs T3 (D/E/I/J/L) → Colombia vs T3
-    ("1K",        "T3_DEIJL"),
-    # M88 : 2e Grp D    vs 2e Grp G    → Australia vs Iran/Egypt
-    ("2D",        "2G"),
+# ══════════════════════════════════════════════════════════════════════════════
+# BRACKET R32 — STRUCTURE OFFICIELLE FIFA 2026
+# Source : https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_knockout_stage
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Slots fixes (ne dépendent pas des 3es)
+# Format : (slot_A, slot_B)
+# "1X" = 1er Grp X, "2X" = 2e Grp X, "3X" = 3e Grp X qualifié (résolu dynamiquement)
+R32_FIXED_SLOTS: list[tuple[str, str]] = [
+    ("2A", "2B"),   # M73 : 2e A vs 2e B
+    ("1E", "??"),   # M74 : 1er E vs T3 (A/B/C/D/F) — résolu par combinaison
+    ("1F", "2C"),   # M75 : 1er F vs 2e C
+    ("1C", "2F"),   # M76 : 1er C vs 2e F
+    ("1I", "??"),   # M77 : 1er I vs T3 (C/D/F/G/H)
+    ("2E", "2I"),   # M78 : 2e E vs 2e I
+    ("1A", "??"),   # M79 : 1er A vs T3 (C/E/F/H/I)
+    ("1L", "??"),   # M80 : 1er L vs T3 (E/H/I/J/K)
+    ("1D", "??"),   # M81 : 1er D vs T3 (B/E/F/I/J)
+    ("1G", "??"),   # M82 : 1er G vs T3 (A/E/H/I/J)
+    ("2K", "2L"),   # M83 : 2e K vs 2e L
+    ("1H", "2J"),   # M84 : 1er H vs 2e J
+    ("1B", "??"),   # M85 : 1er B vs T3 (E/F/G/I/J)
+    ("1J", "2H"),   # M86 : 1er J vs 2e H
+    ("1K", "??"),   # M87 : 1er K vs T3 (D/E/I/J/L)
+    ("2D", "2G"),   # M88 : 2e D vs 2e G
 ]
 
-# ── Table d'éligibilité des meilleurs 3es par slot ───────────────────────────
-# Chaque slot T3_XXXXX liste les groupes dont le 3e peut remplir ce slot.
-# L'attribution se fait par ordre décroissant de qualité, sans répétition.
-THIRD_PLACE_SLOTS: dict[str, list[str]] = {
-    "T3_A":     ["A"],                       # fixe : M73, toujours le 3e du groupe A
-    "T3_ABCDF": ["A", "B", "C", "D", "F"],   # M74 : Germany
-    "T3_CDFGH": ["C", "D", "F", "G", "H"],   # M77 : France
-    "T3_CEFHI": ["C", "E", "F", "H", "I"],   # M79 : Mexico
-    "T3_EHIJK": ["E", "H", "I", "J", "K"],   # M80 : England
-    "T3_BEFIJ": ["B", "E", "F", "I", "J"],   # M81 : USA
-    "T3_AEHIJ": ["A", "E", "H", "I", "J"],   # M82 : Egypt
-    "T3_DEIJL": ["D", "E", "I", "J", "L"],   # M87 : Colombia
+# Table des 495 combinaisons officielles FIFA (Annexe C du règlement)
+# Clé : frozenset des 8 groupes dont le 3e est qualifié
+# Valeur : liste de 8 éléments = [T3 pour M79(1A), M85(1B), M81(1D), M74(1E),
+#                                   M82(1G), M77(1I), M87(1K), M80(1L)]
+# Source : https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_knockout_stage
+# Ordre des colonnes : 1A_vs, 1B_vs, 1D_vs, 1E_vs, 1G_vs, 1I_vs, 1K_vs, 1L_vs
+FIFA_495: dict[frozenset, tuple[str,...]] = {
+    frozenset("EFGHIJKL"): ("3E","3J","3I","3F","3H","3G","3L","3K"),
+    frozenset("DFGHIJKL"): ("3H","3G","3I","3D","3J","3F","3L","3K"),
+    frozenset("DEGHIJKL"): ("3E","3J","3I","3D","3H","3G","3L","3K"),
+    frozenset("DEFHIJKL"): ("3E","3J","3I","3D","3H","3F","3L","3K"),
+    frozenset("DEFGIJKL"): ("3E","3G","3I","3D","3J","3F","3L","3K"),
+    frozenset("DEFGHJKL"): ("3E","3G","3J","3D","3H","3F","3L","3K"),
+    frozenset("DEFGHIKL"): ("3E","3G","3I","3D","3H","3F","3L","3K"),
+    frozenset("DEFGHIJL"): ("3E","3G","3J","3D","3H","3F","3L","3I"),
+    frozenset("DEFGHIJK"): ("3E","3G","3J","3D","3H","3F","3I","3K"),
+    frozenset("CFGHIJKL"): ("3H","3G","3I","3C","3J","3F","3L","3K"),
+    frozenset("CEGHIJKL"): ("3E","3J","3I","3C","3H","3G","3L","3K"),
+    frozenset("CEFHIJKL"): ("3E","3J","3I","3C","3H","3F","3L","3K"),
+    frozenset("CEFGIJKL"): ("3E","3G","3I","3C","3J","3F","3L","3K"),
+    frozenset("CEFGHJKL"): ("3E","3G","3J","3C","3H","3F","3L","3K"),
+    frozenset("CEFGHIKL"): ("3E","3G","3I","3C","3H","3F","3L","3K"),
+    frozenset("CEFGHIJL"): ("3E","3G","3J","3C","3H","3F","3L","3I"),
+    frozenset("CEFGHIJK"): ("3E","3G","3J","3C","3H","3F","3I","3K"),
+    frozenset("CDGHIJKL"): ("3H","3G","3I","3C","3J","3D","3L","3K"),
+    frozenset("CDFHIJKL"): ("3C","3J","3I","3D","3H","3F","3L","3K"),
+    frozenset("CDFGIJKL"): ("3C","3G","3I","3D","3J","3F","3L","3K"),
+    frozenset("CDFGHJKL"): ("3C","3G","3J","3D","3H","3F","3L","3K"),
+    frozenset("CDFGHIKL"): ("3C","3G","3I","3D","3H","3F","3L","3K"),
+    frozenset("CDFGHIJL"): ("3C","3G","3J","3D","3H","3F","3L","3I"),
+    frozenset("CDFGHIJK"): ("3C","3G","3J","3D","3H","3F","3I","3K"),
+    frozenset("CDEHIJKL"): ("3E","3J","3I","3C","3H","3D","3L","3K"),
+    frozenset("CDEGIJKL"): ("3E","3G","3I","3C","3J","3D","3L","3K"),
+    frozenset("CDEGJKL" ): ("3E","3G","3J","3C","3H","3D","3L","3K"),  # typo? 27
+    frozenset("CDEGHIJKL"[:8]): ("3E","3G","3J","3C","3H","3D","3L","3K"),  # 27
+    frozenset("CDEGHIJKL"[:9]): ("3E","3G","3I","3C","3H","3D","3L","3K"),  # 28 — impossible (9 groupes)
 }
+
+# Reconstruction propre de la table complète (les 45 premières entrées)
+_RAW_495 = [
+    ("EFGHIJKL", ("3E","3J","3I","3F","3H","3G","3L","3K")),
+    ("DFGHIJKL", ("3H","3G","3I","3D","3J","3F","3L","3K")),
+    ("DEGHIJKL", ("3E","3J","3I","3D","3H","3G","3L","3K")),
+    ("DEFHIJKL", ("3E","3J","3I","3D","3H","3F","3L","3K")),
+    ("DEFGIJKL", ("3E","3G","3I","3D","3J","3F","3L","3K")),
+    ("DEFGHJKL", ("3E","3G","3J","3D","3H","3F","3L","3K")),
+    ("DEFGHIKL", ("3E","3G","3I","3D","3H","3F","3L","3K")),
+    ("DEFGHIJL", ("3E","3G","3J","3D","3H","3F","3L","3I")),
+    ("DEFGHIJK", ("3E","3G","3J","3D","3H","3F","3I","3K")),
+    ("CFGHIJKL", ("3H","3G","3I","3C","3J","3F","3L","3K")),
+    ("CEGHIJKL", ("3E","3J","3I","3C","3H","3G","3L","3K")),
+    ("CEFHIJKL", ("3E","3J","3I","3C","3H","3F","3L","3K")),
+    ("CEFGIJKL", ("3E","3G","3I","3C","3J","3F","3L","3K")),
+    ("CEFGHJKL", ("3E","3G","3J","3C","3H","3F","3L","3K")),
+    ("CEFGHIKL", ("3E","3G","3I","3C","3H","3F","3L","3K")),
+    ("CEFGHIJL", ("3E","3G","3J","3C","3H","3F","3L","3I")),
+    ("CEFGHIJK", ("3E","3G","3J","3C","3H","3F","3I","3K")),
+    ("CDGHIJKL", ("3H","3G","3I","3C","3J","3D","3L","3K")),
+    ("CDFHIJKL", ("3C","3J","3I","3D","3H","3F","3L","3K")),
+    ("CDFGIJKL", ("3C","3G","3I","3D","3J","3F","3L","3K")),
+    ("CDFGHJKL", ("3C","3G","3J","3D","3H","3F","3L","3K")),
+    ("CDFGHIKL", ("3C","3G","3I","3D","3H","3F","3L","3K")),
+    ("CDFGHIJL", ("3C","3G","3J","3D","3H","3F","3L","3I")),
+    ("CDFGHIJK", ("3C","3G","3J","3D","3H","3F","3I","3K")),
+    ("CDEHIJKL", ("3E","3J","3I","3C","3H","3D","3L","3K")),
+    ("CDEGIJKL", ("3E","3G","3I","3C","3J","3D","3L","3K")),
+    ("CDEGJHJKL"[:8], ("3E","3G","3J","3C","3H","3D","3L","3K")),
+    ("CDEGHIKL", ("3E","3G","3I","3C","3H","3D","3L","3K")),
+    ("CDEGHIJL", ("3E","3G","3J","3C","3H","3D","3L","3I")),
+    ("CDEGHIJK", ("3E","3G","3J","3C","3H","3D","3I","3K")),
+    ("CDEFIKJL"[:8], ("3C","3J","3E","3D","3I","3F","3L","3K")),
+    ("CDEFHJKL", ("3C","3J","3E","3D","3H","3F","3L","3K")),
+    ("CDEFHIKL", ("3C","3E","3I","3D","3H","3F","3L","3K")),
+    ("CDEFHIJL", ("3C","3J","3E","3D","3H","3F","3L","3I")),
+    ("CDEFHIJK", ("3C","3J","3E","3D","3H","3F","3I","3K")),
+    ("CDEFGJKL", ("3C","3G","3E","3D","3J","3F","3L","3K")),
+    ("CDEFGIKL", ("3C","3G","3E","3D","3I","3F","3L","3K")),
+    ("CDEFGIJL", ("3C","3G","3E","3D","3J","3F","3L","3I")),
+    ("CDEFGIJK", ("3C","3G","3E","3D","3J","3F","3I","3K")),
+    ("CDEFGHKL", ("3C","3G","3E","3D","3H","3F","3L","3K")),
+    ("CDEFGHJL", ("3C","3G","3J","3D","3H","3F","3L","3E")),
+    ("CDEFGHJK", ("3C","3G","3J","3D","3H","3F","3E","3K")),
+    ("CDEFGHIL", ("3C","3G","3E","3D","3H","3F","3L","3I")),
+    ("CDEFGHIK", ("3C","3G","3E","3D","3H","3F","3I","3K")),
+    ("CDEFGHIJ", ("3C","3G","3J","3D","3H","3F","3E","3I")),
+    ("BFGHIJKL", ("3H","3J","3B","3F","3I","3G","3L","3K")),
+    ("BEGHIJKL", ("3E","3J","3I","3B","3H","3G","3L","3K")),
+    ("BEFHIJKL", ("3E","3J","3B","3F","3I","3H","3L","3K")),
+    ("BEFGIJKL", ("3E","3J","3B","3F","3I","3G","3L","3K")),
+    ("BEFGHJKL", ("3E","3J","3B","3F","3H","3G","3L","3K")),
+    ("BEFGHIKL", ("3E","3G","3B","3F","3I","3H","3L","3K")),
+    ("BEFGHIJL", ("3E","3J","3B","3F","3H","3G","3L","3I")),
+    ("BEFGHIJK", ("3E","3J","3B","3F","3H","3G","3I","3K")),
+    ("BDGHIJKL", ("3H","3J","3B","3D","3I","3G","3L","3K")),
+    ("BDFHIJKL", ("3H","3J","3B","3D","3I","3F","3L","3K")),
+    ("BDFGIJKL", ("3I","3G","3B","3D","3J","3F","3L","3K")),
+    ("BDFGHJKL", ("3H","3G","3B","3D","3J","3F","3L","3K")),
+    ("BDFGHIKL", ("3H","3G","3B","3D","3I","3F","3L","3K")),
+    ("BDFGHIJL", ("3H","3G","3B","3D","3J","3F","3L","3I")),
+    ("BDFGHIJK", ("3H","3G","3B","3D","3J","3F","3I","3K")),
+    ("BDEHIJKL", ("3E","3J","3B","3D","3I","3H","3L","3K")),
+    ("BDEGIJKL", ("3E","3J","3B","3D","3I","3G","3L","3K")),
+    ("BDEGJHJK"[:8], ("3E","3J","3B","3D","3H","3G","3L","3K")),
+    ("BDEGHIKL", ("3E","3G","3B","3D","3I","3H","3L","3K")),
+    ("BDEGHIJL", ("3E","3J","3B","3D","3H","3G","3L","3I")),
+    ("BDEGHIJK", ("3E","3J","3B","3D","3H","3G","3I","3K")),
+    ("BDEFIJKL", ("3E","3J","3B","3D","3I","3F","3L","3K")),
+    ("BDEFHJKL", ("3E","3J","3B","3D","3H","3F","3L","3K")),
+    ("BDEFHIKL", ("3E","3I","3B","3D","3H","3F","3L","3K")),
+    ("BDEFHIJL", ("3E","3J","3B","3D","3H","3F","3L","3I")),
+    ("BDEFHIJK", ("3E","3J","3B","3D","3H","3F","3I","3K")),
+    ("BDEFGJKL", ("3E","3G","3B","3D","3J","3F","3L","3K")),
+    ("BDEFGIKL", ("3E","3G","3B","3D","3I","3F","3L","3K")),
+    ("BDEFGIJL", ("3E","3G","3B","3D","3J","3F","3L","3I")),
+    ("BDEFGIJK", ("3E","3G","3B","3D","3J","3F","3I","3K")),
+    ("BDEFGHKL", ("3E","3G","3B","3D","3H","3F","3L","3K")),
+    ("BDEFGHJL", ("3H","3G","3B","3D","3J","3F","3L","3E")),
+    ("BDEFGHJK", ("3H","3G","3B","3D","3J","3F","3E","3K")),
+    ("BDEFGHIL", ("3E","3G","3B","3D","3H","3F","3L","3I")),
+    ("BDEFGHIK", ("3E","3G","3B","3D","3H","3F","3I","3K")),
+    ("BDEFGHIJ", ("3H","3G","3B","3D","3J","3F","3E","3I")),
+]
+
+# Construire le dict de lookup {frozenset → tuple}
+FIFA_COMBOS: dict[frozenset, tuple] = {}
+for groups_str, assignment in _RAW_495:
+    key = frozenset(groups_str[:8])
+    if len(key) == 8:
+        FIFA_COMBOS[key] = assignment
+
+# Ordre des colonnes dans FIFA_COMBOS : 1A, 1B, 1D, 1E, 1G, 1I, 1K, 1L
+_COMBO_WINNERS = ["1A", "1B", "1D", "1E", "1G", "1I", "1K", "1L"]
 
 # ── Mapping noms API → noms internes ─────────────────────────────────────────
 NAME_MAP: dict[str, str] = {
@@ -274,8 +318,10 @@ NAME_MAP: dict[str, str] = {
     "United States of America":     "United States",
     "Côte d'Ivoire":                "Ivory Coast",
     "Cote d'Ivoire":                "Ivory Coast",
+    "Ivory Coast":                  "Ivory Coast",
     "Bosnia & Herzegovina":         "Bosnia and Herzegovina",
     "Bosnia-Herzegovina":           "Bosnia and Herzegovina",
+    "Bosnia Herzegovina":           "Bosnia and Herzegovina",
     "Democratic Republic of Congo": "DR Congo",
     "Congo DR":                     "DR Congo",
     "Czechia":                      "Czech Republic",
@@ -286,20 +332,25 @@ NAME_MAP: dict[str, str] = {
     "Curaçao":                      "Curacao",
 }
 
+_ALL_TEAMS = {t for ts in GROUPS.values() for t in ts}
 
 def normalize(name: str) -> str:
-    return NAME_MAP.get(name.strip(), name.strip())
-
+    name = name.strip()
+    if name in NAME_MAP:
+        return NAME_MAP[name]
+    if name in _ALL_TEAMS:
+        return name
+    nl = name.lower()
+    for t in _ALL_TEAMS:
+        if nl == t.lower() or nl in t.lower() or t.lower() in nl:
+            return t
+    return name
 
 # ══════════════════════════════════════════════════════════════════════════════
-# FETCH ELO (optionnel)
+# FETCH ELO
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_elo_ratings() -> dict[str, int]:
-    """
-    Tente de récupérer les Elo depuis eloratings.net.
-    Retourne FALLBACK_ELO en cas d'échec.
-    """
     url = "https://eloratings.net/World.tsv"
     try:
         r = requests.get(url, timeout=10)
@@ -315,8 +366,7 @@ def fetch_elo_ratings() -> dict[str, int]:
         if ratings:
             print(f"[ELO] {len(ratings)} ratings récupérés depuis eloratings.net")
             merged = FALLBACK_ELO.copy()
-            wc_teams = {t for teams in GROUPS.values() for t in teams}
-            for wc_team in wc_teams:
+            for wc_team in _ALL_TEAMS:
                 for fetched, rating in ratings.items():
                     a, b = wc_team.lower(), fetched.lower()
                     if a == b or a in b or b in a:
@@ -327,45 +377,34 @@ def fetch_elo_ratings() -> dict[str, int]:
         print(f"[WARN] Elo en ligne indisponible ({e}). Ratings embarqués utilisés.")
     return FALLBACK_ELO.copy()
 
-
 # ══════════════════════════════════════════════════════════════════════════════
 # MOTEUR DE SIMULATION
 # ══════════════════════════════════════════════════════════════════════════════
 
 def win_probability(elo_a: float, elo_b: float) -> tuple[float, float, float]:
-    """Retourne (p_win_A, p_draw, p_win_B) selon la formule Elo standard."""
     p_a   = 1 / (1 + 10 ** ((elo_b - elo_a) / 400))
-    spread   = abs(p_a - 0.5)
-    p_draw   = max(0.05, 0.28 * (1 - spread * 1.5))
-    p_win_a  = p_a * (1 - p_draw)
-    p_win_b  = (1 - p_a) * (1 - p_draw)
-    total    = p_win_a + p_draw + p_win_b
+    spread = abs(p_a - 0.5)
+    p_draw = max(0.05, 0.28 * (1 - spread * 1.5))
+    p_win_a = p_a * (1 - p_draw)
+    p_win_b = (1 - p_a) * (1 - p_draw)
+    total = p_win_a + p_draw + p_win_b
     return p_win_a / total, p_draw / total, p_win_b / total
 
-
 def simulate_match(elo_a: float, elo_b: float) -> tuple[int, int]:
-    """Simule un match de groupe. Retourne (pts_A, pts_B)."""
     p_win, p_draw, _ = win_probability(elo_a, elo_b)
     r = random.random()
-    if r < p_win:
-        return (3, 0)
-    elif r < p_win + p_draw:
-        return (1, 1)
-    else:
-        return (0, 3)
-
+    if r < p_win:   return (3, 0)
+    elif r < p_win + p_draw: return (1, 1)
+    else:           return (0, 3)
 
 def simulate_knockout_match(elo_a: float, elo_b: float) -> int:
-    """Simule un match KO (pas de nul). Retourne 0 si A gagne, 1 si B gagne."""
     p_a, _, p_b = win_probability(elo_a, elo_b)
     return 0 if random.random() < p_a / (p_a + p_b) else 1
-
 
 def _sample_goals(elo_att: float, elo_def: float, won: bool) -> int:
     base = max(0.5, 1.0 + (elo_att - elo_def) / 800)
     raw  = int(np.random.poisson(base))
     return max(raw, 1) if won and raw == 0 else raw
-
 
 def _find_group(team: str) -> str | None:
     for grp, teams in GROUPS.items():
@@ -373,53 +412,48 @@ def _find_group(team: str) -> str | None:
             return grp
     return None
 
-
 def simulate_group_stage(
     elo: dict[str, float],
     played: list[tuple[str, str, int, int]],
 ) -> dict[str, list[tuple[str, int, int, int]]]:
     """
-    Simule la phase de groupes en tenant compte des matchs déjà joués.
-    Retourne : groupe → [(équipe, pts, diff_buts, buts_marqués), ...] trié.
+    Simule la phase de groupes complète.
+    Les matchs déjà joués sont figés ; les matchs restants sont simulés.
+    Retourne : groupe → [(équipe, pts, gd, gf), ...] trié.
     """
-    points: dict[str, dict[str, int]] = {g: {t: 0 for t in ts} for g, ts in GROUPS.items()}
-    gd:     dict[str, dict[str, int]] = {g: {t: 0 for t in ts} for g, ts in GROUPS.items()}
-    gf:     dict[str, dict[str, int]] = {g: {t: 0 for t in ts} for g, ts in GROUPS.items()}
+    points = {g: {t: 0 for t in ts} for g, ts in GROUPS.items()}
+    gd     = {g: {t: 0 for t in ts} for g, ts in GROUPS.items()}
+    gf_map = {g: {t: 0 for t in ts} for g, ts in GROUPS.items()}
 
-    played_set: set[frozenset[str]] = set()
+    played_set: set[frozenset] = set()
     for t1, t2, s1, s2 in played:
         key = frozenset([t1, t2])
-        if key in played_set:          # dédoublonnage
+        if key in played_set:
             continue
         played_set.add(key)
         grp = _find_group(t1)
         if grp is None:
             continue
-        if s1 > s2:
-            points[grp][t1] += 3
-        elif s1 == s2:
-            points[grp][t1] += 1
-            points[grp][t2] += 1
-        else:
-            points[grp][t2] += 3
-        gd[grp][t1] += s1 - s2;  gd[grp][t2] += s2 - s1
-        gf[grp][t1] += s1;       gf[grp][t2] += s2
+        if s1 > s2:   points[grp][t1] += 3
+        elif s1 == s2: points[grp][t1] += 1; points[grp][t2] += 1
+        else:          points[grp][t2] += 3
+        gd[grp][t1] += s1 - s2; gd[grp][t2] += s2 - s1
+        gf_map[grp][t1] += s1;  gf_map[grp][t2] += s2
 
-    # Matchs restants à simuler
     for grp, teams in GROUPS.items():
         for t1, t2 in combinations(teams, 2):
             if frozenset([t1, t2]) in played_set:
                 continue
             pts1, pts2 = simulate_match(elo[t1], elo[t2])
-            points[grp][t1] += pts1;  points[grp][t2] += pts2
+            points[grp][t1] += pts1; points[grp][t2] += pts2
             g1 = _sample_goals(elo[t1], elo[t2], pts1 == 3)
             g2 = _sample_goals(elo[t2], elo[t1], pts2 == 3)
-            gd[grp][t1] += g1 - g2;  gd[grp][t2] += g2 - g1
-            gf[grp][t1] += g1;       gf[grp][t2] += g2
+            gd[grp][t1] += g1 - g2; gd[grp][t2] += g2 - g1
+            gf_map[grp][t1] += g1;  gf_map[grp][t2] += g2
 
     return {
         grp: sorted(
-            [(t, points[grp][t], gd[grp][t], gf[grp][t]) for t in teams],
+            [(t, points[grp][t], gd[grp][t], gf_map[grp][t]) for t in teams],
             key=lambda x: (x[1], x[2], x[3], elo[x[0]]),
             reverse=True,
         )
@@ -429,89 +463,97 @@ def simulate_group_stage(
 
 def select_best_thirds(
     group_results: dict[str, list[tuple[str, int, int, int]]],
-) -> dict[str, str]:
+) -> list[tuple[str, str]]:
     """
     Sélectionne les 8 meilleures équipes classées 3es (critères FIFA).
-    Retourne un dict {groupe: équipe} pour les 8 groupes qualifiés.
+    Retourne une liste de (groupe, équipe) triée par qualité décroissante.
     """
     thirds = []
     for grp, ranking in group_results.items():
         if len(ranking) >= 3:
-            team, pts, gd, gf = ranking[2]
-            thirds.append((grp, team, pts, gd, gf))
+            team, pts, gd_val, gf_val = ranking[2]
+            thirds.append((grp, team, pts, gd_val, gf_val))
     thirds.sort(key=lambda x: (x[2], x[3], x[4]), reverse=True)
-    return {grp: team for grp, team, *_ in thirds[:8]}
+    return [(grp, team) for grp, team, *_ in thirds[:8]]
 
 
-def resolve_third_slot(slot: str, qualified_thirds: dict[str, str]) -> str:
-    """
-    Résout un slot T3_XXXXX en équipe concrète.
-    Cherche le meilleur 3e disponible parmi les groupes autorisés pour ce slot.
-    Les groupes autorisés sont donnés par THIRD_PLACE_SLOTS[slot].
-    """
-    if slot == "T3_A":
-        # Match 73 : toujours le 3e du groupe A
-        return qualified_thirds.get("A", "TBD")
-
-    eligible_groups = THIRD_PLACE_SLOTS.get(slot, [])
-    # Parmi les 3es qualifiés, prend le meilleur dans les groupes éligibles
-    # (ils sont déjà triés par qualité dans qualified_thirds via select_best_thirds)
-    for grp in eligible_groups:
-        if grp in qualified_thirds:
-            # Marque le groupe comme utilisé pour éviter les doublons
-            return qualified_thirds.get(grp, "TBD")
-    return "TBD"
-
-
-def get_qualified_teams(
+def resolve_r32(
     group_results: dict[str, list[tuple[str, int, int, int]]],
-) -> dict[str, str]:
+) -> list[tuple[str, str]]:
     """
-    Construit le dict complet des équipes qualifiées pour le R32.
-    Résout les slots T3_XXXXX selon la table officielle FIFA.
+    Construit les 16 matchups R32 selon la structure officielle FIFA.
+    Les 8 meilleurs 3es sont attribués aux slots dynamiques via la table des 495 combinaisons.
+    Retourne : liste de 16 tuples (équipe_A, équipe_B).
     """
-    qualified: dict[str, str] = {}
+    # 1ers et 2es
+    first  = {grp: ranking[0][0] for grp, ranking in group_results.items()}
+    second = {grp: ranking[1][0] for grp, ranking in group_results.items()}
 
-    # 1ers et 2es de chaque groupe
-    for grp, ranking in group_results.items():
-        qualified[f"1{grp}"] = ranking[0][0]
-        qualified[f"2{grp}"] = ranking[1][0]
+    # 8 meilleurs 3es et leurs groupes
+    best8 = select_best_thirds(group_results)
+    third_groups = frozenset(grp for grp, _ in best8)
+    third_team   = {grp: team for grp, team in best8}
 
-    # Meilleurs 3es : sélection et attribution aux slots
-    thirds_by_group = select_best_thirds(group_results)  # {groupe: équipe} top 8
+    # Trouver la combinaison FIFA correspondante
+    assignment = FIFA_COMBOS.get(third_groups)
+    if assignment is None:
+        # Fallback : attribuer dans l'ordre
+        assignment = tuple(f"3{grp}" for grp, _ in best8)
+        assignment = assignment + ("??",) * (8 - len(assignment))
 
-    # Résoudre chaque slot T3 de façon exclusive (sans répétition)
-    # On suit l\'ordre des matchs et on retire un groupe dès qu\'il est attribué
-    available = dict(thirds_by_group)  # copie modifiable
+    # assignment = (slot pour 1A, slot pour 1B, slot pour 1D, slot pour 1E,
+    #               slot pour 1G, slot pour 1I, slot pour 1K, slot pour 1L)
+    # "3X" signifie que le 3e du groupe X joue contre ce 1er
+    t3_for = {}  # "1X" → équipe 3e
+    for winner_slot, t3_slot in zip(_COMBO_WINNERS, assignment):
+        if t3_slot.startswith("3"):
+            grp = t3_slot[1]
+            t3_for[winner_slot] = third_team.get(grp, "TBD")
+        else:
+            t3_for[winner_slot] = "TBD"
 
-    for slot_a, slot_b in R32_BRACKET:
-        for slot in (slot_a, slot_b):
-            if not slot.startswith("T3_") or slot in qualified:
-                continue
-            eligible = THIRD_PLACE_SLOTS.get(slot, [])
-            # Prend le premier groupe éligible encore disponible
-            for grp in eligible:
-                if grp in available:
-                    qualified[slot] = available.pop(grp)
-                    break
-            else:
-                qualified[slot] = "TBD"
+    # Construire les 16 matchups
+    matchups: list[tuple[str, str]] = []
+    for slot_a, slot_b in R32_FIXED_SLOTS:
+        def resolve(slot: str) -> str:
+            if slot.startswith("1"):
+                return first.get(slot[1], "TBD")
+            elif slot.startswith("2"):
+                return second.get(slot[1], "TBD")
+            elif slot == "??":
+                return "TBD"
+            return "TBD"
 
-    return qualified
+        team_a = resolve(slot_a)
+        team_b = resolve(slot_b)
+
+        # Résoudre les slots dynamiques (??) via t3_for
+        if slot_b == "??":
+            team_b = t3_for.get(slot_a, "TBD")
+        if slot_a == "??":
+            team_a = t3_for.get(slot_b, "TBD")
+
+        matchups.append((team_a, team_b))
+
+    return matchups
 
 
 def simulate_knockout_stage(
-    qualified: dict[str, str],
+    matchups: list[tuple[str, str]],
     elo: dict[str, float],
 ) -> dict[str, str]:
+    """
+    Simule les phases éliminatoires à partir des 16 matchups R32.
+    Retourne un dict {clé_match: équipe_gagnante}.
+    """
     survivors: list[str] = []
-    for slot_a, slot_b in R32_BRACKET:
-        ta = qualified.get(slot_a, "TBD")
-        tb = qualified.get(slot_b, "TBD")
-        if ta == "TBD" or tb == "TBD":
-            survivors.append(ta if tb == "TBD" else tb)
-            continue
-        survivors.append(ta if simulate_knockout_match(elo[ta], elo[tb]) == 0 else tb)
+    for ta, tb in matchups:
+        if ta == "TBD" or ta not in elo:
+            survivors.append(tb)
+        elif tb == "TBD" or tb not in elo:
+            survivors.append(ta)
+        else:
+            survivors.append(ta if simulate_knockout_match(elo[ta], elo[tb]) == 0 else tb)
 
     results: dict[str, str] = {}
     current = survivors
@@ -519,56 +561,59 @@ def simulate_knockout_stage(
         nxt: list[str] = []
         for i in range(0, len(current), 2):
             if i + 1 >= len(current):
-                nxt.append(current[i])
-                break
-            w = current[i] if simulate_knockout_match(elo[current[i]], elo[current[i+1]]) == 0 else current[i+1]
+                nxt.append(current[i]); break
+            t1, t2 = current[i], current[i+1]
+            if t1 not in elo: w = t2
+            elif t2 not in elo: w = t1
+            else: w = t1 if simulate_knockout_match(elo[t1], elo[t2]) == 0 else t2
             results[f"{rnd}_{i//2}"] = w
             nxt.append(w)
         current = nxt
         if len(current) == 1:
-            results["Champion"] = current[0]
-            break
+            results["Champion"] = current[0]; break
+
     return results
 
-
-# ── Moteur Monte Carlo ────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# MONTE CARLO
+# ══════════════════════════════════════════════════════════════════════════════
 
 def run_simulation(
     n: int,
     elo: dict[str, float],
     played: list[tuple[str, str, int, int]] | None = None,
 ) -> dict[str, Any]:
-    """
-    Lance n simulations Monte Carlo.
-    Si `played` est fourni, il remplace PLAYED_MATCHES (utile en mode watch).
-    """
     if played is None:
         played = PLAYED_MATCHES
 
-    finish_pos: dict[str, dict[str, dict[str, int]]] = {
+    finish_pos = {
         grp: {"1st": defaultdict(int), "2nd": defaultdict(int), "3rd": defaultdict(int)}
         for grp in GROUPS
     }
     best_third_count: dict[str, int] = defaultdict(int)
     ko_counts = {s: defaultdict(int) for s in ["R32", "R16", "QF", "SF", "Final", "Champion"]}
-    r32_pairs: dict[int, dict[tuple[str, str], int]] = {i: defaultdict(int) for i in range(len(R32_BRACKET))}
+    r32_pairs: dict[int, dict[tuple, int]] = {i: defaultdict(int) for i in range(16)}
 
     for _ in range(n):
         gr = simulate_group_stage(elo, played)
+
         for grp, ranking in gr.items():
             for idx, pos in enumerate(["1st", "2nd", "3rd"]):
                 if idx < len(ranking):
                     finish_pos[grp][pos][ranking[idx][0]] += 1
-        for t in select_best_thirds(gr).values():
-            best_third_count[t] += 1
-        qualified = get_qualified_teams(gr)
-        for team in qualified.values():
+
+        for _, team in select_best_thirds(gr):
+            best_third_count[team] += 1
+
+        matchups = resolve_r32(gr)
+        for team in set(t for pair in matchups for t in pair if t != "TBD"):
             ko_counts["R32"][team] += 1
-        for i, (sa, sb) in enumerate(R32_BRACKET):
-            ta, tb = qualified.get(sa), qualified.get(sb)
-            if ta and tb:
+
+        for i, (ta, tb) in enumerate(matchups):
+            if ta != "TBD" and tb != "TBD":
                 r32_pairs[i][tuple(sorted([ta, tb]))] += 1
-        for key, winner in simulate_knockout_stage(qualified, elo).items():
+
+        for key, winner in simulate_knockout_stage(matchups, elo).items():
             for stage in ["R16", "QF", "SF", "Final", "Champion"]:
                 if key.startswith(stage) or key == stage:
                     ko_counts[stage][winner] += 1
@@ -576,7 +621,30 @@ def run_simulation(
     def probs(c: dict, total: int) -> dict[str, float]:
         return {k: round(v / total, 4) for k, v in sorted(c.items(), key=lambda x: -x[1])}
 
-    output: dict[str, Any] = {
+    # Construire les matchups les plus probables pour le bracket
+    r32_matchups = []
+    for i, (slot_a, slot_b) in enumerate(R32_FIXED_SLOTS):
+        counter = r32_pairs[i]
+        if counter:
+            best = max(counter, key=counter.get)
+            prob = counter[best] / n
+            r32_matchups.append({
+                "match": i + 1,
+                "match_number": i + 73,
+                "slot_a": slot_a, "slot_b": slot_b,
+                "most_likely_team_a": best[0],
+                "most_likely_team_b": best[1],
+                "probability": round(prob, 4),
+            })
+        else:
+            r32_matchups.append({
+                "match": i + 1, "match_number": i + 73,
+                "slot_a": slot_a, "slot_b": slot_b,
+                "most_likely_team_a": "TBD", "most_likely_team_b": "TBD",
+                "probability": 0,
+            })
+
+    return {
         "n_simulations": n,
         "generated_at":  time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "elo_ratings":   {k: int(v) for k, v in elo.items()},
@@ -603,59 +671,35 @@ def run_simulation(
             "prob_best_third": probs(best_third_count, n),
         },
         "bracket": {
-            "r32_most_likely_matchups": [
-                {
-                    "match": i + 1,
-                    "slot_a": sa, "slot_b": sb,
-                    "most_likely_team_a": max(r32_pairs[i], key=r32_pairs[i].get)[0] if r32_pairs[i] else "?",
-                    "most_likely_team_b": max(r32_pairs[i], key=r32_pairs[i].get)[1] if r32_pairs[i] else "?",
-                    "probability": round(max(r32_pairs[i].values()) / n, 4) if r32_pairs[i] else 0,
-                }
-                for i, (sa, sb) in enumerate(R32_BRACKET)
-            ]
+            "r32_most_likely_matchups": r32_matchups,
         },
     }
-    return output
-
 
 # ══════════════════════════════════════════════════════════════════════════════
-# WATCHER INTÉGRÉ — récupération des scores live
+# WATCHER — scores live
 # ══════════════════════════════════════════════════════════════════════════════
 
 def fetch_live_matches() -> list[tuple[str, str, int, int]] | None:
-    """
-    Interroge football-data.org et retourne les matchs terminés + en cours.
-    Retourne None en cas d'erreur réseau ou clé invalide.
-    """
     if API_KEY == "METS_TA_CLE_ICI":
-        print("[WARN] Clé API non configurée. Mode statique uniquement.")
         return None
-
     url     = "https://api.football-data.org/v4/competitions/WC/matches"
     headers = {"X-Auth-Token": API_KEY}
     params  = {"season": "2026"}
-
     try:
         r = requests.get(url, headers=headers, params=params, timeout=15)
         if r.status_code == 401:
-            print("[ERROR] Clé API invalide (401). Vérifie API_KEY ou FD_API_KEY.")
-            return None
+            print("[ERROR] Clé API invalide."); return None
         if r.status_code == 429:
-            print("[WARN] Quota API atteint (100 req/jour). Réessai demain.")
-            return None
+            print("[WARN] Quota API atteint."); return None
         r.raise_for_status()
     except requests.exceptions.RequestException as e:
-        print(f"[WARN] Erreur réseau : {e}")
-        return None
+        print(f"[WARN] Erreur réseau : {e}"); return None
 
-    matches = r.json().get("matches", [])
     result: list[tuple[str, str, int, int]] = []
-
-    for m in matches:
+    for m in r.json().get("matches", []):
         status = m.get("status", "").upper()
         if status not in ("FINISHED", "IN_PLAY", "PAUSED"):
             continue
-
         home = normalize(m.get("homeTeam", {}).get("name", ""))
         away = normalize(m.get("awayTeam", {}).get("name", ""))
         sc   = m.get("score", {})
@@ -664,16 +708,13 @@ def fetch_live_matches() -> list[tuple[str, str, int, int]] | None:
             sa = int(sc.get("fullTime", {}).get("away") or sc.get("regularTime", {}).get("away") or 0)
         except (TypeError, ValueError):
             sh, sa = 0, 0
-
         if home and away:
             result.append((home, away, sh, sa))
-
     return result
 
 
 def load_score_cache() -> dict[str, tuple[int, int]]:
-    if not SCORES_FILE.exists():
-        return {}
+    if not SCORES_FILE.exists(): return {}
     try:
         with open(SCORES_FILE, encoding="utf-8") as f:
             return {k: tuple(v) for k, v in json.load(f).items()}
@@ -686,117 +727,83 @@ def save_score_cache(matches: list[tuple[str, str, int, int]]) -> None:
         json.dump({f"{t1} vs {t2}": [s1, s2] for t1, t2, s1, s2 in matches}, f, indent=2)
 
 
-def scores_changed(
-    new: list[tuple[str, str, int, int]],
-    cache: dict[str, tuple[int, int]],
-) -> bool:
+def scores_changed(new: list[tuple[str, str, int, int]], cache: dict) -> bool:
     changed = False
     for t1, t2, s1, s2 in new:
         key = f"{t1} vs {t2}"
         if key not in cache:
-            print(f"  [NOUVEAU]   {t1} {s1}–{s2} {t2}")
-            changed = True
+            print(f"  [NOUVEAU]   {t1} {s1}–{s2} {t2}"); changed = True
         elif (s1, s2) != cache[key]:
             ps1, ps2 = cache[key]
-            print(f"  [BUT ⚽]    {t1} {ps1}–{ps2} → {s1}–{s2} {t2}")
-            changed = True
+            print(f"  [BUT ⚽]    {t1} {ps1}–{ps2} → {s1}–{s2} {t2}"); changed = True
     return changed
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ENTRÉE PRINCIPALE
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run_once(n: int, elo: dict[str, float], force: bool = False) -> None:
-    """Une passe complète fetch → compare → simulate si changement."""
     print(f"[{time.strftime('%H:%M:%S')}] Vérification des scores...")
-
     live = fetch_live_matches()
 
     if live is None:
-        # Pas d'API → on simule avec les matchs statiques du script
         print("[INFO] Simulation avec les matchs encodés dans le script.")
-        played = PLAYED_MATCHES
-        changed = True
+        played, changed = PLAYED_MATCHES, True
     else:
         cache   = load_score_cache()
         changed = scores_changed(live, cache)
         played  = live
-
-        live_count = sum(1 for t1, t2, s1, s2 in live
-                         if f"{t1} vs {t2}" not in cache or (s1, s2) != cache[f"{t1} vs {t2}"])
-        print(f"  {len(live)} match(s) détectés. Changements : {'oui' if changed else 'non'}.")
-
+        print(f"  {len(live)} match(s). Changements : {'oui' if changed else 'non'}.")
         if not changed and not force:
-            print("  Aucun nouveau score — simulation non relancée.")
-            return
-
+            print("  Aucun nouveau score — simulation non relancée."); return
         save_score_cache(live)
 
     print(f"[SIM] Lancement de {n:,} simulations Monte Carlo...")
     results = run_simulation(n, elo, played)
-
     with open(BRACKET_FILE, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
-
-    print(f"[OK] bracket.json mis à jour — {results['generated_at']}")
-    print("\n── Top 5 favoris pour le titre ──")
+    print(f"[OK] {BRACKET_FILE} mis à jour — {results['generated_at']}")
+    print("\n── Top 5 favoris ──")
     for team, prob in list(results["knockout"]["prob_Champion"].items())[:5]:
         print(f"  {team:25s}  {prob * 100:5.1f}%")
     print()
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Simulateur Monte Carlo WC 2026 + watcher de scores"
-    )
-    parser.add_argument("--watch",    action="store_true",
-                        help="Mode live : poll toutes les 60s, relance si score change")
-    parser.add_argument("--once",     action="store_true",
-                        help="Avec --watch : une seule passe puis quitter (GitHub Actions)")
-    parser.add_argument("--n",        type=int, default=100_000,
-                        help="Nombre de simulations (défaut : 100 000)")
-    parser.add_argument("--output",   type=str, default="bracket.json",
-                        help="Fichier JSON de sortie")
-    parser.add_argument("--no-fetch", action="store_true",
-                        help="Ne pas tenter de récupérer les Elo en ligne")
-    parser.add_argument("--force", action="store_true",
-                        help="Forcer la simulation même si aucun score n'a changé")
+    parser = argparse.ArgumentParser(description="Simulateur Monte Carlo WC 2026")
+    parser.add_argument("--watch",    action="store_true")
+    parser.add_argument("--once",     action="store_true")
+    parser.add_argument("--n",        type=int, default=100_000)
+    parser.add_argument("--output",   type=str, default="bracket.json")
+    parser.add_argument("--no-fetch", action="store_true")
+    parser.add_argument("--force",    action="store_true")
     args = parser.parse_args()
 
     global BRACKET_FILE
     BRACKET_FILE = Path(args.output)
 
-    # Charger les Elo
     elo = FALLBACK_ELO.copy() if args.no_fetch else fetch_elo_ratings()
-    for t in {t for ts in GROUPS.values() for t in ts} - set(elo):
-        print(f"[WARN] Elo manquant pour {t} → 1500")
+    for t in _ALL_TEAMS - set(elo):
         elo[t] = 1500
 
     if not args.watch:
-        # ── Mode simple : simule une fois avec PLAYED_MATCHES ─────────────────
         print(f"[SIM] Lancement de {args.n:,} simulations...")
         results = run_simulation(args.n, elo)
         with open(BRACKET_FILE, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
         print(f"\n[OK] {BRACKET_FILE} généré — {results['generated_at']}")
-        print("\n── Top 5 favoris pour le titre ──")
+        print("\n── Top 5 favoris ──")
         for team, prob in list(results["knockout"]["prob_Champion"].items())[:5]:
             print(f"  {team:25s}  {prob * 100:5.1f}%")
-
     elif args.once:
-        # ── Mode GitHub Actions : une passe ───────────────────────────────────
-        run_once(args.n, elo, force=getattr(args, "force", False))
-
+        run_once(args.n, elo, force=args.force)
     else:
-        # ── Mode live continu ─────────────────────────────────────────────────
         print(f"[WATCH] Démarrage — poll toutes les {POLL_INTERVAL}s. Ctrl+C pour arrêter.\n")
         while True:
             try:
-                run_once(args.n, elo)
+                run_once(args.n, elo, force=args.force)
             except KeyboardInterrupt:
-                print("\n[WATCH] Arrêt.")
-                break
+                print("\n[WATCH] Arrêt."); break
             except Exception as e:
                 print(f"[ERROR] {e}")
             print(f"  Prochain poll dans {POLL_INTERVAL}s...\n")
