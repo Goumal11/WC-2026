@@ -1,18 +1,21 @@
-name: ⚽ Live Score Update
+name: ⚽ Live Score Update & Deploy
 
 on:
-  # Cron toutes les 5 minutes (granularité minimale GitHub Actions)
   schedule:
     - cron: "*/5 * * * *"
-
-  # Déclenchement manuel depuis l'onglet Actions
   workflow_dispatch:
 
 jobs:
-  update-bracket:
+  update-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # nécessaire pour git push
+      contents: write
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: 📥 Checkout
@@ -26,20 +29,18 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install Python dependencies
         run: pip install requests numpy
 
       - name: ⚽ Fetch scores & simulate
         env:
-          # Ajoute ta clé dans : Settings > Secrets and variables > Actions > New secret
-          # Nom du secret : FD_API_KEY
           FD_API_KEY: ${{ secrets.FD_API_KEY }}
-        run: python watcher.py --once --n 50000
+        run: python simulator.py --watch --once --n 50000 --output public/bracket.json
 
       - name: 🔍 Check for changes
         id: check
         run: |
-          git diff --quiet bracket.json live_scores.json \
+          git diff --quiet public/bracket.json live_scores.json \
             && echo "changed=false" >> $GITHUB_OUTPUT \
             || echo "changed=true" >> $GITHUB_OUTPUT
 
@@ -48,6 +49,32 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add bracket.json live_scores.json
+          git add public/bracket.json live_scores.json
           git commit -m "⚽ bracket update — $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
+
+      - name: 🟢 Setup Node.js
+        if: steps.check.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: 📦 Install Node dependencies
+        if: steps.check.outputs.changed == 'true'
+        run: npm ci
+
+      - name: 🔨 Build React app
+        if: steps.check.outputs.changed == 'true'
+        run: npm run build
+
+      - name: 📤 Upload Pages artifact
+        if: steps.check.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+      - name: 🌐 Deploy to GitHub Pages
+        if: steps.check.outputs.changed == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4
