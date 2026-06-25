@@ -213,34 +213,59 @@ PLAYED_MATCHES: list[tuple[str, str, int, int]] = [
     # Ajoute les résultats ici, ou utilise --watch pour la mise à jour auto
 ]
 
-# ── Bracket R32 (structure officielle FIFA 2026) ──────────────────────────────
+# ── Bracket R32 — Structure officielle FIFA 2026 ─────────────────────────────
+# Source : fifa.com + skysports.com (confirmé sur les matchs déjà connus)
+# Format : (slot_équipe_A, slot_équipe_B)
+#   "1X"       = 1er du groupe X
+#   "2X"       = 2e du groupe X
+#   "T3_XXXXX" = meilleur 3e parmi les groupes listés (résolu dynamiquement)
 R32_BRACKET: list[tuple[str, str]] = [
-    ("1A", "2D"),  ("1B", "2E"),  ("1C", "2F"),  ("1D", "2G"),
-    ("1E", "2H"),  ("1F", "2I"),  ("1G", "2J"),  ("1H", "2K"),
-    ("1I", "2L"),  ("1J", "2A"),  ("1K", "2B"),  ("1L", "2C"),
-    ("T3_1", "T3_2"), ("T3_3", "T3_4"), ("T3_5", "T3_6"), ("T3_7", "T3_8"),
+    # M73 : 3e Grp A    vs 1er Grp B   → ex: South Africa vs Canada
+    ("T3_A",      "1B"),
+    # M74 : 1er Grp E   vs T3 (A/B/C/D/F) → Germany vs T3
+    ("1E",        "T3_ABCDF"),
+    # M75 : 1er Grp F   vs 2e Grp C    → Netherlands vs Morocco
+    ("1F",        "2C"),
+    # M76 : 1er Grp C   vs 2e Grp F    → Brazil vs Japan
+    ("1C",        "2F"),
+    # M77 : 1er Grp I   vs T3 (C/D/F/G/H) → France vs T3
+    ("1I",        "T3_CDFGH"),
+    # M78 : 2e Grp E    vs 2e Grp I    → Ivory Coast vs Norway
+    ("2E",        "2I"),
+    # M79 : 1er Grp A   vs T3 (C/E/F/H/I) → Mexico vs T3
+    ("1A",        "T3_CEFHI"),
+    # M80 : 1er Grp L   vs T3 (E/H/I/J/K) → England vs T3
+    ("1L",        "T3_EHIJK"),
+    # M81 : 1er Grp D   vs T3 (B/E/F/I/J) → USA vs T3
+    ("1D",        "T3_BEFIJ"),
+    # M82 : 1er Grp G   vs T3 (A/E/H/I/J) → Egypt vs T3
+    ("1G",        "T3_AEHIJ"),
+    # M83 : 2e Grp H    vs 2e Grp L    → Uruguay vs Croatia/Ghana
+    ("2H",        "2L"),
+    # M84 : 2e Grp B    vs 2e Grp K    → Switzerland vs Portugal/Ghana
+    ("2B",        "2K"),
+    # M85 : 2e Grp A    vs 2e Grp J    → South Korea vs Austria/Algeria
+    ("2A",        "2J"),
+    # M86 : 1er Grp J   vs 2e Grp H    → Argentina vs Uruguay
+    ("1J",        "2H"),
+    # M87 : 1er Grp K   vs T3 (D/E/I/J/L) → Colombia vs T3
+    ("1K",        "T3_DEIJL"),
+    # M88 : 2e Grp D    vs 2e Grp G    → Australia vs Iran/Egypt
+    ("2D",        "2G"),
 ]
 
-# ── Attribution des meilleures 3es aux slots T3 (FIFA 2026) ──────────────────
-# Chaque slot T3_N liste les groupes éligibles par ordre de priorité.
-# La logique d'attribution exclut un groupe dès qu'il est utilisé.
-# Avec 12 groupes et 8 meilleures 3es qualifiées, on dispose de 8 slots T3
-# répartis en 4 matchs (matchs 13–16 du R32).
-# Les groupes éligibles par slot sont basés sur la table officielle FIFA :
-#   Match 13 : T3_1 vs T3_2  → meilleurs 3es des groupes A/B/C/D
-#   Match 14 : T3_3 vs T3_4  → meilleurs 3es des groupes E/F/G/H
-#   Match 15 : T3_5 vs T3_6  → meilleurs 3es des groupes I/J/K/L
-#   Match 16 : T3_7 vs T3_8  → meilleurs 3es des groupes A/B/C/D/E/F/G/H/I/J/K/L
-#              (les 2 meilleures 3es restantes, tous groupes confondus)
+# ── Table d'éligibilité des meilleurs 3es par slot ───────────────────────────
+# Chaque slot T3_XXXXX liste les groupes dont le 3e peut remplir ce slot.
+# L'attribution se fait par ordre décroissant de qualité, sans répétition.
 THIRD_PLACE_SLOTS: dict[str, list[str]] = {
-    "T3_1": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
-    "T3_2": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
-    "T3_3": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
-    "T3_4": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
-    "T3_5": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
-    "T3_6": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
-    "T3_7": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
-    "T3_8": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"],
+    "T3_A":     ["A"],                       # fixe : M73, toujours le 3e du groupe A
+    "T3_ABCDF": ["A", "B", "C", "D", "F"],   # M74 : Germany
+    "T3_CDFGH": ["C", "D", "F", "G", "H"],   # M77 : France
+    "T3_CEFHI": ["C", "E", "F", "H", "I"],   # M79 : Mexico
+    "T3_EHIJK": ["E", "H", "I", "J", "K"],   # M80 : England
+    "T3_BEFIJ": ["B", "E", "F", "I", "J"],   # M81 : USA
+    "T3_AEHIJ": ["A", "E", "H", "I", "J"],   # M82 : Egypt
+    "T3_DEIJL": ["D", "E", "I", "J", "L"],   # M87 : Colombia
 }
 
 # ── Mapping noms API → noms internes ─────────────────────────────────────────
@@ -534,7 +559,7 @@ def run_simulation(
             for idx, pos in enumerate(["1st", "2nd", "3rd"]):
                 if idx < len(ranking):
                     finish_pos[grp][pos][ranking[idx][0]] += 1
-        for t in select_best_thirds(gr):
+        for t in select_best_thirds(gr).values():
             best_third_count[t] += 1
         qualified = get_qualified_teams(gr)
         for team in qualified.values():
@@ -682,7 +707,7 @@ def scores_changed(
 # ENTRÉE PRINCIPALE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_once(n: int, elo: dict[str, float]) -> None:
+def run_once(n: int, elo: dict[str, float], force: bool = False) -> None:
     """Une passe complète fetch → compare → simulate si changement."""
     print(f"[{time.strftime('%H:%M:%S')}] Vérification des scores...")
 
@@ -702,7 +727,7 @@ def run_once(n: int, elo: dict[str, float]) -> None:
                          if f"{t1} vs {t2}" not in cache or (s1, s2) != cache[f"{t1} vs {t2}"])
         print(f"  {len(live)} match(s) détectés. Changements : {'oui' if changed else 'non'}.")
 
-        if not changed:
+        if not changed and not force:
             print("  Aucun nouveau score — simulation non relancée.")
             return
 
@@ -735,6 +760,8 @@ def main() -> None:
                         help="Fichier JSON de sortie")
     parser.add_argument("--no-fetch", action="store_true",
                         help="Ne pas tenter de récupérer les Elo en ligne")
+    parser.add_argument("--force", action="store_true",
+                        help="Forcer la simulation même si aucun score n'a changé")
     args = parser.parse_args()
 
     global BRACKET_FILE
@@ -759,7 +786,7 @@ def main() -> None:
 
     elif args.once:
         # ── Mode GitHub Actions : une passe ───────────────────────────────────
-        run_once(args.n, elo)
+        run_once(args.n, elo, force=getattr(args, "force", False))
 
     else:
         # ── Mode live continu ─────────────────────────────────────────────────
