@@ -382,25 +382,74 @@ def simulate_group_stage(
 
 def select_best_thirds(
     group_results: dict[str, list[tuple[str, int, int, int]]],
-) -> list[str]:
-    """Sélectionne les 8 meilleures équipes classées 3es (critères FIFA)."""
-    thirds = [
-        (ranking[2][0], ranking[2][1], ranking[2][2], ranking[2][3])
-        for ranking in group_results.values()
-    ]
-    thirds.sort(key=lambda x: (x[1], x[2], x[3]), reverse=True)
-    return [t[0] for t in thirds[:8]]
+) -> dict[str, str]:
+    """
+    Sélectionne les 8 meilleures équipes classées 3es (critères FIFA).
+    Retourne un dict {groupe: équipe} pour les 8 groupes qualifiés.
+    """
+    thirds = []
+    for grp, ranking in group_results.items():
+        if len(ranking) >= 3:
+            team, pts, gd, gf = ranking[2]
+            thirds.append((grp, team, pts, gd, gf))
+    thirds.sort(key=lambda x: (x[2], x[3], x[4]), reverse=True)
+    return {grp: team for grp, team, *_ in thirds[:8]}
+
+
+def resolve_third_slot(slot: str, qualified_thirds: dict[str, str]) -> str:
+    """
+    Résout un slot T3_XXXXX en équipe concrète.
+    Cherche le meilleur 3e disponible parmi les groupes autorisés pour ce slot.
+    Les groupes autorisés sont donnés par THIRD_PLACE_SLOTS[slot].
+    """
+    if slot == "T3_A":
+        # Match 73 : toujours le 3e du groupe A
+        return qualified_thirds.get("A", "TBD")
+
+    eligible_groups = THIRD_PLACE_SLOTS.get(slot, [])
+    # Parmi les 3es qualifiés, prend le meilleur dans les groupes éligibles
+    # (ils sont déjà triés par qualité dans qualified_thirds via select_best_thirds)
+    for grp in eligible_groups:
+        if grp in qualified_thirds:
+            # Marque le groupe comme utilisé pour éviter les doublons
+            return qualified_thirds.get(grp, "TBD")
+    return "TBD"
 
 
 def get_qualified_teams(
     group_results: dict[str, list[tuple[str, int, int, int]]],
 ) -> dict[str, str]:
+    """
+    Construit le dict complet des équipes qualifiées pour le R32.
+    Résout les slots T3_XXXXX selon la table officielle FIFA.
+    """
     qualified: dict[str, str] = {}
+
+    # 1ers et 2es de chaque groupe
     for grp, ranking in group_results.items():
         qualified[f"1{grp}"] = ranking[0][0]
         qualified[f"2{grp}"] = ranking[1][0]
-    for i, team in enumerate(select_best_thirds(group_results), 1):
-        qualified[f"T3_{i}"] = team
+
+    # Meilleurs 3es : sélection et attribution aux slots
+    thirds_by_group = select_best_thirds(group_results)  # {groupe: équipe} top 8
+
+    # Résoudre chaque slot T3 de façon exclusive (sans répétition)
+    # On suit l\'ordre des matchs et on retire un groupe dès qu\'il est attribué
+    available = dict(thirds_by_group)  # copie modifiable
+
+    for slot_a, slot_b in R32_BRACKET:
+        for slot in (slot_a, slot_b):
+            if not slot.startswith("T3_") or slot in qualified:
+                continue
+            eligible = THIRD_PLACE_SLOTS.get(slot, [])
+            # Prend le premier groupe éligible encore disponible
+            for grp in eligible:
+                if grp in available:
+                    qualified[slot] = available.pop(grp)
+                    break
+            else:
+                qualified[slot] = "TBD"
+
     return qualified
 
 
