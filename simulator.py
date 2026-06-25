@@ -228,7 +228,7 @@ NAME_MAP: dict[str, str] = {
     "Côte d'Ivoire":                "Ivory Coast",
     "Cote d'Ivoire":                "Ivory Coast",
     "Bosnia & Herzegovina":         "Bosnia and Herzegovina",
-    "Bosnia Herzegovina":           "Bosnia and Herzegovina",
+    "Bosnia-Herzegovina":           "Bosnia and Herzegovina",
     "Democratic Republic of Congo": "DR Congo",
     "Congo DR":                     "DR Congo",
     "Czechia":                      "Czech Republic",
